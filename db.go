@@ -33,6 +33,7 @@ const (
 	// DBConnectFlagWipeDB causes the entire DB to erased, and re-initialized from scratch (useful for unit tests).
 	DBConnectFlagWipeDB DBConnectFlags = 1 << iota
 	DBConnectFlagSqliteWAL
+	DBConnectFlagWaitForDB // Wait up to 15 seconds for the database to start up
 )
 
 var DBNotExistRegex *regexp.Regexp
@@ -151,7 +152,20 @@ func OpenDB(log logs.Log, dbc DBConfig, migrations []migration.Migrator, flags D
 	}
 
 	// This is the common fast path, where the database has been created
-	db, err := migration.Open(dbc.Driver, dbc.DSN(), migrations)
+	var db *sql.DB
+	var err error
+	maxTries := 1
+	if (flags & DBConnectFlagWaitForDB) != 0 {
+		maxTries = 15
+	}
+	startConnectTime := time.Now()
+	for i := 0; i < maxTries; i++ {
+		db, err = migration.Open(dbc.Driver, dbc.DSN(), migrations)
+		if err == nil || isDatabaseNotExist(err) || time.Now().Sub(startConnectTime) > 15*time.Second {
+			break
+		}
+		time.Sleep(time.Second)
+	}
 	if err == nil {
 		if err := ApplyPostLoadFlags(db, log, dbc, flags); err != nil {
 			db.Close()
