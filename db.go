@@ -12,10 +12,9 @@ import (
 	"time"
 
 	"github.com/BurntSushi/migration"
-	"github.com/cyclopcam/logs"
+	"github.com/cyclopcam/logs/v3"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
-	"golang.org/x/exp/constraints"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -331,7 +330,7 @@ func SQLCleanIDList(raw string) string {
 }
 
 // Turn an array such as [1,2] into the string "(1,2)"
-func SQLFormatIDArray[T constraints.Integer](ids []T) string {
+func SQLFormatIDArray[T Integer](ids []T) string {
 	res := strings.Builder{}
 	res.WriteRune('(')
 	for i, id := range ids {
