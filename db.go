@@ -345,13 +345,12 @@ func SQLFormatIDArray[T Integer](ids []T) string {
 
 func IsKeyViolation(err error) bool {
 	em := err.Error()
-	return strings.Index(em, "violates unique constraint") != -1
+	return strings.Contains(em, "violates unique constraint") || strings.Contains(em, "UNIQUE constraint failed")
 }
 
 func IsKeyViolationOnIndex(err error, indexName string) bool {
 	em := err.Error()
-	return strings.Index(em, "violates unique constraint") != -1 &&
-		strings.Index(em, indexName) != -1
+	return IsKeyViolation(err) && strings.Contains(em, indexName)
 }
 
 func gormOpen(driver, dsn string) (*gorm.DB, error) {
