@@ -35,14 +35,22 @@ func TestIntTime(t *testing.T) {
 		ID:     1,
 		MyTime: 0,
 	}
-	require.NoError(t, db.Save(&null).Error)
-	read := IntTimeTester{}
-	require.NoError(t, db.First(&read).Error)
-	require.Equal(t, null, read)
+	for pass := 0; pass < 2; pass++ {
+		switch pass {
+		case 0:
+			require.NoError(t, db.Create(&null).Error)
+		case 1:
+			require.NoError(t, db.Save(&null).Error)
+		}
 
-	nullable := sql.NullInt64{}
-	require.NoError(t, db.Raw("SELECT my_time FROM int_time_tester WHERE id = 1").Row().Scan(&nullable))
-	require.Equal(t, false, nullable.Valid)
+		read := IntTimeTester{}
+		require.NoError(t, db.First(&read).Error)
+		require.Equal(t, null, read)
+
+		nullable := sql.NullInt64{}
+		require.NoError(t, db.Raw("SELECT my_time FROM int_time_tester WHERE id = 1").Row().Scan(&nullable))
+		require.Equal(t, false, nullable.Valid)
+	}
 
 	// Check JSON representation of null IntTime
 	jj, err := json.Marshal(&null)
