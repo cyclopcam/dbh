@@ -102,3 +102,20 @@ func OpenSqliteTestDB(t *testing.T) *gorm.DB {
 
 	return db
 }
+
+func TestMilliTime(t *testing.T) {
+	type S1 struct {
+		T1 MilliTime `json:"t1,omitempty"`
+		T2 MilliTime `json:"t2,omitzero"`
+	}
+	x := S1{}
+	j, err := json.Marshal(&x)
+	require.NoError(t, err)
+	// omitempty is not sufficient (you must use omitzero)
+	require.Equal(t, `{"t1":null}`, string(j))
+	x.T1 = Milli(time.Date(2022, time.March, 4, 5, 6, 7, 0, time.UTC))
+	x.T2 = Milli(time.Date(2022, time.April, 5, 6, 7, 8, 0, time.UTC))
+	j, err = json.Marshal(&x)
+	require.NoError(t, err)
+	require.Equal(t, `{"t1":1646370367000,"t2":1649138828000}`, string(j))
+}

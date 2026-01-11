@@ -74,9 +74,8 @@ func (i IntTime) Value() (driver.Value, error) {
 }
 
 // MilliTime serializes to JSON as unix milliseconds.
-// Unfortunately it doesn't support JSON 'omitempty'.
-// We use this for Postgres, because Postgres has proper
-// time.Time support.
+// This works with JSON 'omitzero', but not the older 'omitempty'.
+// We use this for Postgres, because Postgres has proper time.Time support.
 type MilliTime struct {
 	// Embedding time.Time is better than making MilliTime an alias of time.Time, because embedding
 	// brings in all the methods of time.Time, whereas an alias won't have any time-based methods on it.
@@ -96,6 +95,10 @@ func (i *MilliTime) Scan(src any) error {
 		i.Time = t
 	}
 	return nil
+}
+
+func (t MilliTime) IsZero() bool {
+	return t.Time.IsZero()
 }
 
 func (i MilliTime) Value() (driver.Value, error) {
