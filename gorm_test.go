@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -123,4 +124,34 @@ func TestNullToJSON(t *testing.T) {
 	err = json.Unmarshal(j, &t3s)
 	require.NoError(t, err)
 	require.Equal(t, t3, t3s)
+}
+
+type TestUpdates struct {
+	ID        int64 `gorm:"primaryKey"`
+	Value     string
+	CreatedAt IntTime `gorm:"autoCreateTime:milli"`
+	UpdatedAt IntTime `gorm:"autoUpdateTime:milli"`
+}
+
+func TestGormUpdatedAndCreateAt(t *testing.T) {
+	db := OpenSqliteTestDB(t)
+	require.NoError(t, db.Exec("CREATE TABLE test_updates (id INTEGER PRIMARY KEY, value TEXT, created_at INT, updated_at INT)").Error)
+	v := TestUpdates{
+		Value: "abc",
+	}
+	now := time.Now()
+	t1 := now.Add(-time.Millisecond)
+	t2 := now.Add(time.Millisecond)
+	require.NoError(t, db.Create(&v).Error)
+	createdAt1 := v.CreatedAt
+	updatedAt1 := v.UpdatedAt
+	require.WithinRange(t, createdAt1.Get(), t1, t2)
+	require.WithinRange(t, updatedAt1.Get(), t1, t2)
+	time.Sleep(10 * time.Millisecond)
+
+	// update - make sure UpdatedAt changes with a call to Update(). I would expect this to happen,
+	// but have never really looked into it, which is why I'm writing this test.
+	require.Equal(t, v.UpdatedAt.Get().UnixMilli(), v.CreatedAt.Get().UnixMilli())
+	require.NoError(t, db.Model(&v).Update("value", "123").Error)
+	require.Greater(t, v.UpdatedAt.Get().UnixMilli(), v.CreatedAt.Get().UnixMilli())
 }
