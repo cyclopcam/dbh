@@ -33,6 +33,7 @@ const (
 	DBConnectFlagWipeDB DBConnectFlags = 1 << iota
 	DBConnectFlagSqliteWAL
 	DBConnectFlagWaitForDB // Wait up to 15 seconds for the database to start up
+	DBConnectFlagGormDebug // Emit gorm debug logs (which include all SQL statements) to the console
 )
 
 var DBNotExistRegex *regexp.Regexp
@@ -150,6 +151,8 @@ func OpenDB(log logs.Log, dbc DBConfig, migrations []migration.Migrator, flags D
 		}
 	}
 
+	gormDebug := flags&DBConnectFlagGormDebug != 0
+
 	// This is the common fast path, where the database has been created
 	var db *sql.DB
 	var err error
@@ -160,7 +163,7 @@ func OpenDB(log logs.Log, dbc DBConfig, migrations []migration.Migrator, flags D
 	startConnectTime := time.Now()
 	for i := 0; i < maxTries; i++ {
 		db, err = migration.Open(dbc.Driver, dbc.DSN(), migrations)
-		if err == nil || isDatabaseNotExist(err) || time.Now().Sub(startConnectTime) > 15*time.Second {
+		if err == nil || isDatabaseNotExist(err) || time.Since(startConnectTime) > 15*time.Second {
 			break
 		}
 		time.Sleep(time.Second)
@@ -171,7 +174,7 @@ func OpenDB(log logs.Log, dbc DBConfig, migrations []migration.Migrator, flags D
 			return nil, err
 		}
 		db.Close()
-		gormDB, err := gormOpen(dbc.Driver, dbc.DSN())
+		gormDB, err := gormOpen(dbc.Driver, dbc.DSN(), gormDebug)
 		//if err != nil {
 		//	err = fmt.Errorf("Failed to open %v database '%v': %w", driver, dsn, err)
 		//}
@@ -209,7 +212,7 @@ func OpenDB(log logs.Log, dbc DBConfig, migrations []migration.Migrator, flags D
 
 	db.Close()
 	// finally, open with gorm
-	return gormOpen(dbc.Driver, dbc.DSN())
+	return gormOpen(dbc.Driver, dbc.DSN(), gormDebug)
 }
 
 func ApplyPostLoadFlags(db *sql.DB, log logs.Log, dbc DBConfig, flags DBConnectFlags) error {
@@ -353,7 +356,7 @@ func IsKeyViolationOnIndex(err error, indexName string) bool {
 	return IsKeyViolation(err) && strings.Contains(em, indexName)
 }
 
-func gormOpen(driver, dsn string) (*gorm.DB, error) {
+func gormOpen(driver, dsn string, debug bool) (*gorm.DB, error) {
 	var dialector gorm.Dialector
 	switch driver {
 	case DriverPostgres:
@@ -362,11 +365,16 @@ func gormOpen(driver, dsn string) (*gorm.DB, error) {
 		dialector = sqlite.Open(dsn)
 	}
 
+	gormLogLevel := logger.Warn
+	if debug {
+		gormLogLevel = logger.Info
+	}
+
 	newLogger := logger.New(
 		stdlog.New(os.Stdout, "\r\n", stdlog.LstdFlags), // io writer
 		logger.Config{
 			SlowThreshold:             time.Second,
-			LogLevel:                  logger.Warn,
+			LogLevel:                  gormLogLevel,
 			IgnoreRecordNotFoundError: true, // This is the primary reason we use a custom logger. Record not found is just never a loggable thing.
 			Colorful:                  true,
 		},
