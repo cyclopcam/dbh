@@ -25,7 +25,7 @@ func (s *SoftString) Scan(value any) error {
 	case []byte:
 		*s = SoftString(string(v))
 	default:
-		panic("unexpected type for MuteString")
+		panic("unexpected type for SoftString")
 	}
 	return nil
 }
@@ -50,13 +50,13 @@ func (s *SoftString) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 	if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-		return fmt.Errorf("invalid JSON string for MuteString: %s", string(data))
+		return fmt.Errorf("invalid JSON string for SoftString: %s", string(data))
 	}
 	*s = SoftString(data[1 : len(data)-1])
 	return nil
 }
 
-// IsZero returns true if this MuteString is empty.
+// IsZero returns true if this SoftString is empty.
 func (s SoftString) IsZero() bool {
 	return s == ""
 }
