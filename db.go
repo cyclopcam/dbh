@@ -32,8 +32,9 @@ const (
 	// DBConnectFlagWipeDB causes the entire DB to erased, and re-initialized from scratch (useful for unit tests).
 	DBConnectFlagWipeDB DBConnectFlags = 1 << iota
 	DBConnectFlagSqliteWAL
-	DBConnectFlagWaitForDB // Wait up to 15 seconds for the database to start up
-	DBConnectFlagGormDebug // Emit gorm debug logs (which include all SQL statements) to the console
+	DBConnectFlagWaitForDB    // Wait up to 15 seconds for the database to start up
+	DBConnectFlagGormDebug    // Emit gorm debug logs (which include all SQL statements) to the console
+	DBConnectFlagNoInitialLog // Disable the initial "connecting to ..." log
 )
 
 var DBNotExistRegex *regexp.Regexp
@@ -58,7 +59,7 @@ func MakeSqliteConfig(filename string) DBConfig {
 	}
 }
 
-// LogSafeDescription seturn a string that is useful for debugging connection issues, but doesn't leak secrets
+// LogSafeDescription returns a string that is useful for debugging connection issues, but doesn't leak secrets
 func (db *DBConfig) LogSafeDescription() string {
 	desc := fmt.Sprintf("driver=%s host=%v database=%v username=%v", db.Driver, db.Host, db.Database, db.Username)
 	if db.Port != 0 {
@@ -145,6 +146,10 @@ func MakeMigrationFromFunc(log logs.Log, migrationNumber *int, f migration.Migra
 
 // OpenDB creates a new DB, or opens an existing one, and runs all the migrations before returning.
 func OpenDB(log logs.Log, dbc DBConfig, migrations []migration.Migrator, flags DBConnectFlags) (*gorm.DB, error) {
+	if flags&DBConnectFlagNoInitialLog == 0 {
+		log.Infof("Connecting to database: %v", dbc.LogSafeDescription())
+	}
+
 	if flags&DBConnectFlagWipeDB != 0 {
 		if err := DropAllTables(log, dbc); err != nil {
 			return nil, err
