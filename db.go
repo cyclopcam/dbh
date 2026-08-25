@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/BurntSushi/migration"
-	"github.com/cyclopcam/logs/v3"
+	"github.com/cyclopcam/logs/v4"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 	"gorm.io/driver/postgres"
